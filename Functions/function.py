@@ -33,7 +33,7 @@ def data_exploration(df, column):
             count_value = df.groupby(
                 [column]).size().reset_index(name='counts')
             count_value['%count'] = [
-                round(num/len(df)*100, 2) for num in list(count_value['counts'])]
+                round(num / len(df) * 100, 2) for num in list(count_value['counts'])]
             print(count_value)
             value_list = count_value[column].tolist()
             count_list = count_value['counts'].tolist()
@@ -43,30 +43,43 @@ def data_exploration(df, column):
             plt.show()
         else:
             print(column + ' has more than 10 unique values')
-    else:
-        mean = df[column].describe()['mean']
-        std = df[column].describe()['std']
-        outlier = df[((df[column]-mean)/std > 3) |
-                     ((df[column]-mean)/std < -3)][column].tolist()
-        if len(outlier) > 0:
-            print('There are ' + str(len(outlier)) +
-                  ' of outliers for ' + column + '.')
-            print(outlier)
+
+    elif pd.api.types.is_numeric_dtype(df[column]) or pd.api.types.is_bool_dtype(df[column]):
+        mean = df[column].mean()
+        std = df[column].std()
+
+        if std != 0:
+            outlier = df[((df[column] - mean) / std > 3) |
+                         ((df[column] - mean) / std < -3)][column].tolist()
+            if len(outlier) > 0:
+                print('There are ' + str(len(outlier)) +
+                      ' outliers for ' + column + '.')
+                print(outlier)
+            else:
+                print('There are no outliers in ' + column + '.')
         else:
-            print('There is no outlier of ' + column + '.')
+            print('Standard deviation is 0, skipping outlier detection.')
 
         print('----------------------Box plot----------------------')
-        df[column].plot.box(title=column, whis=(5, 95))
+        # Convert boolean to int for plotting, if needed
+        plot_data = df[column].astype(int) if pd.api.types.is_bool_dtype(
+            df[column]) else df[column]
+        plot_data.plot.box(title=column, whis=(5, 95))
         plt.grid()
         plt.show()
 
-        min_value = float(df[column].describe()['min'])
-        max_value = float(df[column].describe()['max'])
+        # Convert bool to int if necessary
+        col_data = df[column].astype(int) if pd.api.types.is_bool_dtype(
+            df[column]) else df[column]
+
+        min_value = float(col_data.min())
+        max_value = float(col_data.max())
+
         if df[column].nunique() >= 10:
             para = (max_value - min_value) / 10
             para_list = np.arange(min_value, max_value,
                                   para).round(decimals=2).tolist()
-            count_table = df.loc[:, [column]]
+            count_table = col_data.to_frame().copy()
             for num in para_list:
                 count_table.loc[count_table[column] >= num, 'range'] = num
             count_table_sum = count_table.groupby(
@@ -80,3 +93,5 @@ def data_exploration(df, column):
             plt.xticks(rotation=40, fontsize=12)
             plt.grid()
             plt.show()
+    else:
+        print(f"{column} data type is not supported for exploration.")
